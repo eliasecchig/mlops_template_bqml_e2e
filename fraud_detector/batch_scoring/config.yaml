@@ -1,0 +1,11 @@
+pipeline_name: power-predictor-scoring
+experiment_name: power-predictor-exp
+pipeline_schedule: "1 * * * *"
+timezone: "Europe/Berlin"
+
+labels:
+  team: team_name
+
+parameters:
+  model_name: tx.fraud_detector_2023_03_28
+

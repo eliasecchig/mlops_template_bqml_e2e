@@ -1,0 +1,7 @@
+kfp==2.0.0b13
+google-cloud-pipeline-components==2.0.0b
+google-cloud-aiplatform==1.23.0
+google-cloud-scheduler==2.10.0
+pytest
+pandas
+pyarrow

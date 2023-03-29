@@ -1,0 +1,12 @@
+pipeline_name: power-predictor-training
+experiment_name: power-predictor-exp
+pipeline_schedule: "1 * * * *"
+timezone: "Europe/Berlin"
+
+labels:
+  team: team_name
+
+parameters:
+  model_name: "tx.fraud_detector_{{ now().strftime('%Y_%m_%d') }}"
+  model_parameters:
+    max_iterations: 20

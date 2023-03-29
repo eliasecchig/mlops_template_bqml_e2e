@@ -1,0 +1,499 @@
+# PIPELINE DEFINITION
+# Name: power-predictor-training
+# Description: Trains and deploys bqml model
+# Inputs:
+#    parameters: dict [Default: {'model_name': "tx.fraud_detector_{{ now().strftime('%Y_%m_%d') }}", 'model_parameters': {'max_iterations': 20.0}}]
+#    project: str
+#    region: str [Default: 'us-central1']
+# Outputs:
+#    extract-metrics-from-model-op-metrics: system.Metrics
+components:
+  comp-bq-sql-query-op:
+    executorLabel: exec-bq-sql-query-op
+    inputDefinitions:
+      parameters:
+        execution_timestamp:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        jinja_variables:
+          defaultValue: {}
+          isOptional: true
+          parameterType: STRUCT
+        location:
+          parameterType: STRING
+        project:
+          parameterType: STRING
+        query:
+          parameterType: STRING
+        query_job_config:
+          defaultValue: {}
+          isOptional: true
+          parameterType: STRUCT
+    outputDefinitions:
+      parameters:
+        destination:
+          parameterType: STRING
+        gcp_resources:
+          parameterType: STRING
+        templated_sql_query:
+          parameterType: STRING
+  comp-bq-sql-query-op-2:
+    executorLabel: exec-bq-sql-query-op-2
+    inputDefinitions:
+      parameters:
+        execution_timestamp:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        jinja_variables:
+          defaultValue: {}
+          isOptional: true
+          parameterType: STRUCT
+        location:
+          parameterType: STRING
+        project:
+          parameterType: STRING
+        query:
+          parameterType: STRING
+        query_job_config:
+          defaultValue: {}
+          isOptional: true
+          parameterType: STRUCT
+    outputDefinitions:
+      parameters:
+        destination:
+          parameterType: STRING
+        gcp_resources:
+          parameterType: STRING
+        templated_sql_query:
+          parameterType: STRING
+  comp-bq-sql-query-op-3:
+    executorLabel: exec-bq-sql-query-op-3
+    inputDefinitions:
+      parameters:
+        execution_timestamp:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        jinja_variables:
+          defaultValue: {}
+          isOptional: true
+          parameterType: STRUCT
+        location:
+          parameterType: STRING
+        project:
+          parameterType: STRING
+        query:
+          parameterType: STRING
+        query_job_config:
+          defaultValue: {}
+          isOptional: true
+          parameterType: STRUCT
+    outputDefinitions:
+      parameters:
+        destination:
+          parameterType: STRING
+        gcp_resources:
+          parameterType: STRING
+        templated_sql_query:
+          parameterType: STRING
+  comp-extract-metrics-from-model-op:
+    executorLabel: exec-extract-metrics-from-model-op
+    inputDefinitions:
+      parameters:
+        location:
+          parameterType: STRING
+        model_name:
+          parameterType: STRING
+        project:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-bq-sql-query-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - bq_sql_query_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'Jinja2==3.1.2'\
+          \ 'kfp==2.0.0-beta.13' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef bq_sql_query_op(\n        project: str,\n        location: str,\n\
+          \        query: str,\n        jinja_variables: dict = {},\n        query_job_config:\
+          \ dict = {},\n        execution_timestamp: str = \"\",\n) -> NamedTuple(\"\
+          Outputs\", [(\"gcp_resources\", str), (\"destination\", str), (\"templated_sql_query\"\
+          , str)]):\n    import jinja2\n    import json\n    import logging\n\n  \
+          \  from google.cloud import bigquery\n    from datetime import datetime\n\
+          \    from google_cloud_pipeline_components.proto.gcp_resources_pb2 import\
+          \ GcpResources\n    from google.protobuf.json_format import MessageToJson\n\
+          \    from collections import namedtuple\n\n    def render_string(string,\
+          \ **kwargs):\n        GLOBALS_JINJA = {\"now\": datetime.utcnow}\n     \
+          \   rtemplate = jinja2.Environment(loader=jinja2.BaseLoader).from_string(string)\n\
+          \        data = rtemplate.render(**kwargs, **GLOBALS_JINJA)\n        return\
+          \ data\n\n    def sql_query(\n            project: str,\n            location:\
+          \ str,\n            sql_query: str,\n            query_job_config: dict\
+          \ = {}\n    ) -> bigquery.QueryJob:\n        client = bigquery.client.Client(project=project,\
+          \ location=location)\n        job_config = bigquery.QueryJobConfig(**query_job_config)\n\
+          \        query_job = client.query(sql_query, job_config=job_config)\n  \
+          \      logging.info(query_job.result())\n        return query_job\n\n  \
+          \  jinja_variables = json.loads(render_string(\n        json.dumps(jinja_variables),\n\
+          \    ))\n    jinja_variables = {\n        \"project\": project,\n      \
+          \  \"location\": location,\n        \"execution_timestamp\": execution_timestamp,\n\
+          \        **jinja_variables\n    }\n    query_job_config = json.loads(render_string(\n\
+          \        json.dumps(query_job_config),\n        **jinja_variables\n    ))\n\
+          \    templated_sql_query = render_string(\n        query,\n        **jinja_variables,\n\
+          \    )\n    logging.info('-------------------TEMPLATED SQL QUERY: --------------------')\n\
+          \    logging.info(templated_sql_query.replace('\\n', ''))\n    query_job\
+          \ = sql_query(\n        project=project,\n        sql_query=templated_sql_query,\n\
+          \        location=location,\n        query_job_config=query_job_config\n\
+          \    )\n    # Returning job resource to integrate with BigQuery\n    # https://cloud.google.com/vertex-ai/docs/pipelines/build-own-components\n\
+          \    bigquery_resources = GcpResources()\n    br = bigquery_resources.resources.add()\n\
+          \    br.resource_type = 'BigQueryJob'\n    br.resource_uri = f'https://www.googleapis.com/bigquery/v2/projects/{project}/jobs/{query_job.job_id}?location={location}'\n\
+          \    gcp_resources = MessageToJson(bigquery_resources)\n    outputs = namedtuple('Outputs',\
+          \ ['gcp_resources', \"destination\", \"templated_sql_query\"])\n    return\
+          \ outputs(gcp_resources, str(query_job.destination), templated_sql_query)\n\
+          \n"
+        image: gcr.io/ml-pipeline/google-cloud-pipeline-components:2.0.0b0
+    exec-bq-sql-query-op-2:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - bq_sql_query_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'Jinja2==3.1.2'\
+          \ 'kfp==2.0.0-beta.13' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef bq_sql_query_op(\n        project: str,\n        location: str,\n\
+          \        query: str,\n        jinja_variables: dict = {},\n        query_job_config:\
+          \ dict = {},\n        execution_timestamp: str = \"\",\n) -> NamedTuple(\"\
+          Outputs\", [(\"gcp_resources\", str), (\"destination\", str), (\"templated_sql_query\"\
+          , str)]):\n    import jinja2\n    import json\n    import logging\n\n  \
+          \  from google.cloud import bigquery\n    from datetime import datetime\n\
+          \    from google_cloud_pipeline_components.proto.gcp_resources_pb2 import\
+          \ GcpResources\n    from google.protobuf.json_format import MessageToJson\n\
+          \    from collections import namedtuple\n\n    def render_string(string,\
+          \ **kwargs):\n        GLOBALS_JINJA = {\"now\": datetime.utcnow}\n     \
+          \   rtemplate = jinja2.Environment(loader=jinja2.BaseLoader).from_string(string)\n\
+          \        data = rtemplate.render(**kwargs, **GLOBALS_JINJA)\n        return\
+          \ data\n\n    def sql_query(\n            project: str,\n            location:\
+          \ str,\n            sql_query: str,\n            query_job_config: dict\
+          \ = {}\n    ) -> bigquery.QueryJob:\n        client = bigquery.client.Client(project=project,\
+          \ location=location)\n        job_config = bigquery.QueryJobConfig(**query_job_config)\n\
+          \        query_job = client.query(sql_query, job_config=job_config)\n  \
+          \      logging.info(query_job.result())\n        return query_job\n\n  \
+          \  jinja_variables = json.loads(render_string(\n        json.dumps(jinja_variables),\n\
+          \    ))\n    jinja_variables = {\n        \"project\": project,\n      \
+          \  \"location\": location,\n        \"execution_timestamp\": execution_timestamp,\n\
+          \        **jinja_variables\n    }\n    query_job_config = json.loads(render_string(\n\
+          \        json.dumps(query_job_config),\n        **jinja_variables\n    ))\n\
+          \    templated_sql_query = render_string(\n        query,\n        **jinja_variables,\n\
+          \    )\n    logging.info('-------------------TEMPLATED SQL QUERY: --------------------')\n\
+          \    logging.info(templated_sql_query.replace('\\n', ''))\n    query_job\
+          \ = sql_query(\n        project=project,\n        sql_query=templated_sql_query,\n\
+          \        location=location,\n        query_job_config=query_job_config\n\
+          \    )\n    # Returning job resource to integrate with BigQuery\n    # https://cloud.google.com/vertex-ai/docs/pipelines/build-own-components\n\
+          \    bigquery_resources = GcpResources()\n    br = bigquery_resources.resources.add()\n\
+          \    br.resource_type = 'BigQueryJob'\n    br.resource_uri = f'https://www.googleapis.com/bigquery/v2/projects/{project}/jobs/{query_job.job_id}?location={location}'\n\
+          \    gcp_resources = MessageToJson(bigquery_resources)\n    outputs = namedtuple('Outputs',\
+          \ ['gcp_resources', \"destination\", \"templated_sql_query\"])\n    return\
+          \ outputs(gcp_resources, str(query_job.destination), templated_sql_query)\n\
+          \n"
+        image: gcr.io/ml-pipeline/google-cloud-pipeline-components:2.0.0b0
+    exec-bq-sql-query-op-3:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - bq_sql_query_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'Jinja2==3.1.2'\
+          \ 'kfp==2.0.0-beta.13' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef bq_sql_query_op(\n        project: str,\n        location: str,\n\
+          \        query: str,\n        jinja_variables: dict = {},\n        query_job_config:\
+          \ dict = {},\n        execution_timestamp: str = \"\",\n) -> NamedTuple(\"\
+          Outputs\", [(\"gcp_resources\", str), (\"destination\", str), (\"templated_sql_query\"\
+          , str)]):\n    import jinja2\n    import json\n    import logging\n\n  \
+          \  from google.cloud import bigquery\n    from datetime import datetime\n\
+          \    from google_cloud_pipeline_components.proto.gcp_resources_pb2 import\
+          \ GcpResources\n    from google.protobuf.json_format import MessageToJson\n\
+          \    from collections import namedtuple\n\n    def render_string(string,\
+          \ **kwargs):\n        GLOBALS_JINJA = {\"now\": datetime.utcnow}\n     \
+          \   rtemplate = jinja2.Environment(loader=jinja2.BaseLoader).from_string(string)\n\
+          \        data = rtemplate.render(**kwargs, **GLOBALS_JINJA)\n        return\
+          \ data\n\n    def sql_query(\n            project: str,\n            location:\
+          \ str,\n            sql_query: str,\n            query_job_config: dict\
+          \ = {}\n    ) -> bigquery.QueryJob:\n        client = bigquery.client.Client(project=project,\
+          \ location=location)\n        job_config = bigquery.QueryJobConfig(**query_job_config)\n\
+          \        query_job = client.query(sql_query, job_config=job_config)\n  \
+          \      logging.info(query_job.result())\n        return query_job\n\n  \
+          \  jinja_variables = json.loads(render_string(\n        json.dumps(jinja_variables),\n\
+          \    ))\n    jinja_variables = {\n        \"project\": project,\n      \
+          \  \"location\": location,\n        \"execution_timestamp\": execution_timestamp,\n\
+          \        **jinja_variables\n    }\n    query_job_config = json.loads(render_string(\n\
+          \        json.dumps(query_job_config),\n        **jinja_variables\n    ))\n\
+          \    templated_sql_query = render_string(\n        query,\n        **jinja_variables,\n\
+          \    )\n    logging.info('-------------------TEMPLATED SQL QUERY: --------------------')\n\
+          \    logging.info(templated_sql_query.replace('\\n', ''))\n    query_job\
+          \ = sql_query(\n        project=project,\n        sql_query=templated_sql_query,\n\
+          \        location=location,\n        query_job_config=query_job_config\n\
+          \    )\n    # Returning job resource to integrate with BigQuery\n    # https://cloud.google.com/vertex-ai/docs/pipelines/build-own-components\n\
+          \    bigquery_resources = GcpResources()\n    br = bigquery_resources.resources.add()\n\
+          \    br.resource_type = 'BigQueryJob'\n    br.resource_uri = f'https://www.googleapis.com/bigquery/v2/projects/{project}/jobs/{query_job.job_id}?location={location}'\n\
+          \    gcp_resources = MessageToJson(bigquery_resources)\n    outputs = namedtuple('Outputs',\
+          \ ['gcp_resources', \"destination\", \"templated_sql_query\"])\n    return\
+          \ outputs(gcp_resources, str(query_job.destination), templated_sql_query)\n\
+          \n"
+        image: gcr.io/ml-pipeline/google-cloud-pipeline-components:2.0.0b0
+    exec-extract-metrics-from-model-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - extract_metrics_from_model_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'kfp==2.0.0-beta.13'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef extract_metrics_from_model_op(\n        project: str,\n     \
+          \   location: str,\n        model_name: str,\n        metrics: Output[Metrics]\n\
+          ):\n    from google.cloud import bigquery\n\n    client = bigquery.client.Client(project=project,\
+          \ location=location)\n    df = client.query(f\" SELECT * FROM ML.EVALUATE(MODEL\
+          \ `{model_name}`)\").to_dataframe()\n    for metric, value in df.iloc[0].to_dict().items():\n\
+          \        metrics.log_metric(metric, value)\n\n"
+        image: gcr.io/ml-pipeline/google-cloud-pipeline-components:2.0.0b0
+pipelineInfo:
+  name: power-predictor-training
+root:
+  dag:
+    outputs:
+      artifacts:
+        extract-metrics-from-model-op-metrics:
+          artifactSelectors:
+          - outputArtifactKey: metrics
+            producerSubtask: extract-metrics-from-model-op
+    tasks:
+      bq-sql-query-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-bq-sql-query-op
+        inputs:
+          parameters:
+            jinja_variables:
+              componentInputParameter: parameters
+            location:
+              componentInputParameter: region
+            project:
+              componentInputParameter: project
+            query:
+              runtimeValue:
+                constant: "WITH joined_transactions AS (\n    SELECT\n    raw_tx.tx_ts,\n\
+                  \    raw_tx.tx_id,\n    raw_tx.customer_id,\n    raw_tx.terminal_id,\n\
+                  \    raw_tx.tx_amount,\n    raw_lb.tx_fraud\n    FROM `tx.tx` AS\
+                  \ raw_tx\n    LEFT JOIN `tx.txlabels` AS raw_lb\n    ON raw_tx.TX_ID\
+                  \ = raw_lb.TX_ID\n)\nSELECT *,\nFORMAT_DATE('%A', tx_ts)  AS day_of_the_week,\n\
+                  COUNT(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 7200 PRECEDING AND 1 PRECEDING) AS count_tx_amount_by_customer_id_2h_1s,\n\
+                  COUNT(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 21600 PRECEDING AND 1 PRECEDING) AS count_tx_amount_by_customer_id_6h_1s,\n\
+                  COUNT(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 518400 PRECEDING AND 1 PRECEDING) AS count_tx_amount_by_customer_id_6d_1s,\n\
+                  COUNT(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 2419200 PRECEDING AND 1 PRECEDING) AS count_tx_amount_by_customer_id_28d_1s,\n\
+                  COUNT(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 7776000 PRECEDING AND 1 PRECEDING) AS count_tx_amount_by_customer_id_90d_1s,\n\
+                  CAST(SUM(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 7200 PRECEDING AND 1 PRECEDING) AS FLOAT64) AS sum_tx_amount_by_customer_id_2h_1s,\n\
+                  CAST(SUM(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 21600 PRECEDING AND 1 PRECEDING) AS FLOAT64) AS\
+                  \ sum_tx_amount_by_customer_id_6h_1s,\nCAST(SUM(tx_amount) OVER\
+                  \ (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts) RANGE BETWEEN\
+                  \ 518400 PRECEDING AND 1 PRECEDING) AS FLOAT64) AS sum_tx_amount_by_customer_id_6d_1s,\n\
+                  CAST(SUM(tx_amount) OVER (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts)\
+                  \ RANGE BETWEEN 2419200 PRECEDING AND 1 PRECEDING) AS FLOAT64) AS\
+                  \ sum_tx_amount_by_customer_id_28d_1s,\nCAST(SUM(tx_amount) OVER\
+                  \ (PARTITION BY customer_id ORDER BY UNIX_SECONDS(tx_ts) RANGE BETWEEN\
+                  \ 7776000 PRECEDING AND 1 PRECEDING) AS FLOAT64) AS sum_tx_amount_by_customer_id_90d_1s,\n\
+                  FROM joined_transactions\n-- We select a part of our data for training,\
+                  \ in this case anything more recent than a year\nWHERE DATE(tx_ts)\
+                  \ > DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)\n-- We limit for\
+                  \ demo purposes\nLIMIT 10000\n\n-- With your data:\n--SELECT\n--SUM_VERBRAUCH_HT_KWH\
+                  \ + SUM_VERBRAUCH_NT_KWH as target,\n--RADIO_VENDOR,\n--AIRCONDITION,\n\
+                  --FAN\n-- ANY OTHER FEATURE\n--FROM\n--mlops_template_workshop.input_table\n\
+                  --WHERE DATE(tx_ts) > DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)\n\
+                  \n"
+            query_job_config:
+              runtimeValue:
+                constant:
+                  destination: '{{ project }}.tx.feature_table'
+                  write_disposition: WRITE_TRUNCATE
+        taskInfo:
+          name: Feature engineering
+      bq-sql-query-op-2:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-bq-sql-query-op-2
+        dependentTasks:
+        - bq-sql-query-op
+        inputs:
+          parameters:
+            jinja_variables:
+              componentInputParameter: parameters
+            location:
+              componentInputParameter: region
+            project:
+              componentInputParameter: project
+            query:
+              runtimeValue:
+                constant: "CREATE OR REPLACE MODEL `{{ model_name }}`\n        OPTIONS\
+                  \ (\n            MODEL_TYPE='LOGISTIC_REG',\n            INPUT_LABEL_COLS=['tx_fraud'],\n\
+                  \            EARLY_STOP=TRUE,\n            MAX_ITERATIONS={{ model_parameters['max_iterations']\
+                  \ }},\n            model_registry='vertex_ai',\n            vertex_ai_model_id='fraud_detector',\n\
+                  \            vertex_ai_model_version_aliases=['experimental','{{\
+                  \ now().strftime('%Y_%m_%d') }}']\n        )\n        AS SELECT\
+                  \ * FROM tx.feature_table\n"
+        taskInfo:
+          name: Model training
+      bq-sql-query-op-3:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-bq-sql-query-op-3
+        dependentTasks:
+        - bq-sql-query-op-2
+        inputs:
+          parameters:
+            jinja_variables:
+              componentInputParameter: parameters
+            location:
+              componentInputParameter: region
+            project:
+              componentInputParameter: project
+            query:
+              runtimeValue:
+                constant: 'SELECT * FROM ML.EXPLAIN_PREDICT(MODEL `{{ model_name }}`,
+                  (
+
+                  SELECT *
+
+                  FROM
+
+                  tx.feature_table
+
+                  LIMIT 1000), STRUCT())'
+            query_job_config:
+              runtimeValue:
+                constant:
+                  destination: '{{ project }}.tx.explanations'
+                  write_disposition: WRITE_TRUNCATE
+        taskInfo:
+          name: Model explain
+      extract-metrics-from-model-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-extract-metrics-from-model-op
+        dependentTasks:
+        - bq-sql-query-op-2
+        inputs:
+          parameters:
+            location:
+              componentInputParameter: region
+            model_name:
+              taskOutputParameter:
+                outputParameterKey: destination
+                producerTask: bq-sql-query-op-2
+            project:
+              componentInputParameter: project
+        taskInfo:
+          name: extract-metrics-from-model-op
+  inputDefinitions:
+    parameters:
+      parameters:
+        defaultValue:
+          model_name: tx.fraud_detector_{{ now().strftime('%Y_%m_%d') }}
+          model_parameters:
+            max_iterations: 20.0
+        isOptional: true
+        parameterType: STRUCT
+      project:
+        parameterType: STRING
+      region:
+        defaultValue: us-central1
+        isOptional: true
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      extract-metrics-from-model-op-metrics:
+        artifactType:
+          schemaTitle: system.Metrics
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.0.0-beta.13

@@ -1,0 +1,5 @@
+kfp==2.0.0b13
+pytest==7.2.0
+google-cloud-aiplatform==1.20.0
+pytz==2022.7
+
