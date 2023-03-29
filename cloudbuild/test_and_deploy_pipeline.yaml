@@ -1,0 +1,73 @@
+steps:
+  # Install dependencies
+  - name: 'python:3.8'
+    entrypoint: /bin/bash
+    args:
+      - '-c'
+      - |
+        pip install -r requirements.txt --user
+
+  # Compile pipeline
+  - name: 'python:3.8'
+    id: compile
+    entrypoint: /bin/bash
+    args:
+      - '-c'
+      - |
+       PYTHONPATH=. python $_PIPELINE_FOLDER/pipeline.py
+
+  # Test the Pipeline Components
+  - name: 'python:3.8'
+    id: 'test_pipeline'
+    entrypoint: /bin/bash
+    args:
+      - '-c'
+      - |
+        PYTHONPATH=. python -m pytest tests
+        
+
+  # Run the Vertex AI Pipeline (synchronously for test/qa environment) with caching enabled.
+  - name: 'python:3.8'
+    id: 'test'
+    entrypoint: /bin/bash
+    args:
+      - '-c'
+      - |
+        PYTHONPATH=. python utils/tools/trigger_pipeline.py \
+        --config_path $_PIPELINE_FOLDER/config.yaml \
+        --project $PROJECT_ID
+
+ # Create pipeline template and upload it to the artifact registry
+  - name: 'python:3.8'
+    id: 'template'
+    entrypoint: /bin/bash
+    args:
+      - '-c'
+      - |
+        PYTHONPATH=.  python utils/tools/create_pipeline_template.py --project $PROJECT_ID
+
+  # Run the Vertex AI Pipeline (synchronously for test/qa environment) with caching enabled.
+  - name: 'python:3.8'
+    id: 'production'
+    entrypoint: /bin/bash
+    args:
+      - '-c'
+      - |
+        PYTHONPATH=. python utils/tools/trigger_pipeline.py \
+        --config_path $_PIPELINE_FOLDER/config.yaml \
+        --project $PROJECT_ID \
+        --enable_caching False \
+        --submit_pipeline_sync False 
+
+  - name: 'python:3.8'
+    id: 'deploy-scheduler'
+    entrypoint: /bin/bash
+    args:
+      - '-c'
+      - |
+        PYTHONPATH=.  python utils/tools/create_scheduler.py \
+        --config_path $_PIPELINE_FOLDER/config.yaml \
+        --project $PROJECT_ID        
+
+substitutions:
+  _PIPELINE_FOLDER : fraud_detector/training
