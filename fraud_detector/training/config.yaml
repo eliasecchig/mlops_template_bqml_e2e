@@ -7,6 +7,6 @@ labels:
   team: team_name
 
 parameters:
-  model_name: "tx.fraud_detector_{{ now().strftime('%Y_%m_%d') }}"
+  model_name: tx.fraud_detector
   model_parameters:
     max_iterations: 20

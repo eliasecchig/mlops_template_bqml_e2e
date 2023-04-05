@@ -7,5 +7,5 @@ labels:
   team: team_name
 
 parameters:
-  model_name: tx.fraud_detector_2023_03_28
+  model_name: tx.fraud_detector
 

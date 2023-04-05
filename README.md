@@ -1,6 +1,58 @@
-# gcp-mlops-demo
+# Dummy BQML system E2E implementation
 
-This is a sample project that illustrates how to use [Vertex AI](https://cloud.google.com/vertex-ai) on GCP for building and running [MLOps workflows](https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning#mlops_level_2_cicd_pipeline_automation).
+This is a sample project that illustrates how to use [Vertex AI](https://cloud.google.com/vertex-ai), BQML and Cloud Build to
+build a fully functional <b>ML system</b> comprising of the following functionalities:
+- [Training Pipeline](fraud_detector/training/pipeline.py): implemented using Vertex AI Pipeline, we showcase a simple pipeline that executes BQML queries to train a model.
+- [Batch scoring Pipeline](fraud_detector/batch_scoring/pipeline.py): similar to the training pipeline, also this pipeline is implemented using Vertex AI Pipeline. It will perform predictions for the BQML model. 
+- [CICD Pipeline](cloudbuild/test_and_deploy_pipeline.yaml): implemented with Cloud Build, this pipeline will execute dummy unit tests, compile the pipelines, test them and then simulate a deployment to production with schedule enabled.  
+
+As part of this repository we guide the user in setting up the system in a matter of minutes.
+We will show how to execute training, scoring and how to setup CICD for both pipelines, by creating a dummy repository to allow for automatic trigger.
+
+The system implemented in this repository is a dummy fraud detection model, implemented using the same dataset of [FraudFinder](https://github.com/GoogleCloudPlatform/fraudfinder)
+
+## Supercharging BQML with Jinja
+
+A key feature of the BQML queries defined in this repository is that they support [Jinja2 templating](https://jinja.palletsprojects.com/en/2.11.x/templates/).
+This extends the capabilities of SQL by introducing scripting, allowing developers to define complex logic in the SQL such as:
+- For loops
+- If-else statements
+- Variables abstraction in configuration files
+
+An example of that is the model name and model parameters of the SQL file which creates the model in `fraud_detector/training/sql/01_train_model.sql`:
+```
+CREATE OR REPLACE MODEL `{{ model_name }}`
+        OPTIONS (
+            MODEL_TYPE='LOGISTIC_REG',
+            INPUT_LABEL_COLS=['tx_fraud'],
+            EARLY_STOP=TRUE,
+            MAX_ITERATIONS={{ model_parameters['max_iterations'] }},
+            model_registry='vertex_ai',
+            vertex_ai_model_id='fraud_detector',
+            vertex_ai_model_version_aliases=['experimental','{{ now().strftime('%Y_%m_%d') }}']
+        )
+        AS SELECT * FROM tx.feature_table
+```
+
+You can notice that variables like `model_name` or the `max_iterations` are parametrised in the SQL query. 
+This allows the user to control these parameters directly in the [configuration file](fraud_detector/training/config.yaml) for the training pipeline to reduce duplication of logic. 
+
+```yaml
+pipeline_name: power-predictor-training
+experiment_name: power-predictor-exp
+pipeline_schedule: "1 * * * *"
+timezone: "Europe/Berlin"
+
+labels:
+  team: team_name
+
+parameters:
+  model_name: "tx.fraud_detector"
+  model_parameters:
+    max_iterations: 20
+```
+
+Jinja templating is made possible by creating a custom KFP Component which executes SQL queries. You can find the definition of the component [here](utils/components/bigquery/sql_query.py)
 
 ## GCP environment setup
 ```commandline
