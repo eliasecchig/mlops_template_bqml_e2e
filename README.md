@@ -15,9 +15,10 @@ The system implemented in this repository is a dummy fraud detection model, impl
 
 A key feature of the BQML queries defined in this repository is that they support [Jinja2 templating](https://jinja.palletsprojects.com/en/2.11.x/templates/).
 This extends the capabilities of SQL by introducing scripting, allowing developers to define complex logic in the SQL such as:
-- For loops
-- If-else statements
-- Variables abstraction in configuration files
+- [For loops](https://jinja.palletsprojects.com/en/3.1.x/templates/#for)
+- [If-else](https://jinja.palletsprojects.com/en/3.1.x/templates/#if) statements
+- [Re-usable macros](https://jinja.palletsprojects.com/en/3.1.x/templates/#macros) and [Template Inheritance](https://jinja.palletsprojects.com/en/3.1.x/templates/#template-inheritance) to abstract and reuse complex logic
+- SQL Parametrisation through configuration files
 
 An example of that is the model name and model parameters of the SQL file which creates the model in `fraud_detector/training/sql/01_train_model.sql`:
 ```
@@ -34,7 +35,7 @@ CREATE OR REPLACE MODEL `{{ model_name }}`
         AS SELECT * FROM tx.feature_table
 ```
 
-You can notice that variables like `model_name` or the `max_iterations` are parametrised in the SQL query. 
+You can notice that the name of the model or the variable for `MAX_ITERATIONS` are parametrised in the SQL query. 
 This allows the user to control these parameters directly in the [configuration file](fraud_detector/training/config.yaml) for the training pipeline to reduce duplication of logic. 
 
 ```yaml
