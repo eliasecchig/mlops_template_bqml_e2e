@@ -39,8 +39,8 @@ You can notice that the name of the model or the variable for `MAX_ITERATIONS` a
 This allows the user to control these parameters directly in the [configuration file](fraud_detector/training/config.yaml) for the training pipeline to reduce duplication of logic. 
 
 ```yaml
-pipeline_name: power-predictor-training
-experiment_name: power-predictor-exp
+pipeline_name: dummy-predictor-training
+experiment_name: dummy-predictor-exp
 pipeline_schedule: "1 * * * *"
 timezone: "Europe/Berlin"
 

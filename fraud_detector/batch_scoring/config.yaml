@@ -1,5 +1,5 @@
-pipeline_name: power-predictor-scoring
-experiment_name: power-predictor-exp
+pipeline_name: dummy-predictor-scoring
+experiment_name: dummy-predictor-exp
 pipeline_schedule: "1 * * * *"
 timezone: "Europe/Berlin"
 
